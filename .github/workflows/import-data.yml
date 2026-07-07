@@ -4,9 +4,22 @@ name: "Importar dados reais — guarded audit"
 on:
   workflow_dispatch:
     inputs:
-      real_data_url:
-        description: "URL pública explícita para auditoria de importação; obrigatório"
+      standard_real_data_source:
+        description: "Fonte real padrão para auditoria de importação"
         required: true
+        default: desi_dr2_bao
+        type: choice
+        options:
+          - custom
+          - hz_cosmic_chronometers
+          - desi_dr2_bao
+          - pantheon_plus_shoes
+          - planck_2018_cmb
+          - fsigma8_growth
+      real_data_url:
+        description: "URL pública customizada; usada somente quando standard_real_data_source=custom"
+        required: false
+        default: ""
       output_name:
         description: Nome do artifact gerado
         required: false
@@ -53,13 +66,50 @@ jobs:
             echo "scripts/detect_synthetic.py not found; skipping report-only guard"
           fi
 
-      - name: Import explicit public data URL into audit workspace
+      - name: Resolve standard real-data URL
         env:
-          REAL_DATA_URL: ${{ github.event.inputs.real_data_url }}
+          STANDARD_REAL_DATA_SOURCE: ${{ github.event.inputs.standard_real_data_source }}
+          CUSTOM_REAL_DATA_URL: ${{ github.event.inputs.real_data_url }}
+        run: |
+          set -euo pipefail
+          case "$STANDARD_REAL_DATA_SOURCE" in
+            custom)
+              if [ -z "$CUSTOM_REAL_DATA_URL" ]; then
+                echo "standard_real_data_source=custom requires real_data_url"
+                exit 1
+              fi
+              RESOLVED_REAL_DATA_URL="$CUSTOM_REAL_DATA_URL"
+              ;;
+            hz_cosmic_chronometers)
+              RESOLVED_REAL_DATA_URL="https://arxiv.org/abs/2205.05701"
+              ;;
+            desi_dr2_bao)
+              RESOLVED_REAL_DATA_URL="https://arxiv.org/abs/2503.14738"
+              ;;
+            pantheon_plus_shoes)
+              RESOLVED_REAL_DATA_URL="https://github.com/PantheonPlusSH0ES/DataRelease"
+              ;;
+            planck_2018_cmb)
+              RESOLVED_REAL_DATA_URL="https://arxiv.org/abs/1808.05724"
+              ;;
+            fsigma8_growth)
+              RESOLVED_REAL_DATA_URL="https://arxiv.org/abs/1204.4725"
+              ;;
+            *)
+              echo "Unknown standard_real_data_source: $STANDARD_REAL_DATA_SOURCE"
+              exit 1
+              ;;
+          esac
+          echo "RESOLVED_REAL_DATA_SOURCE=$STANDARD_REAL_DATA_SOURCE" >> "$GITHUB_ENV"
+          echo "RESOLVED_REAL_DATA_URL=$RESOLVED_REAL_DATA_URL" >> "$GITHUB_ENV"
+          echo "Resolved real-data source: $STANDARD_REAL_DATA_SOURCE"
+          echo "Resolved URL: $RESOLVED_REAL_DATA_URL"
+
+      - name: Import explicit public data URL into audit workspace
         run: |
           set -euo pipefail
           mkdir -p _audit/raw
-          python scripts/import_data.py --out _audit/raw/data.json --url "$REAL_DATA_URL"
+          python scripts/import_data.py --out _audit/raw/data.json --url "$RESOLVED_REAL_DATA_URL"
           python - <<'PY'
           import hashlib
           import json
@@ -69,7 +119,8 @@ jobs:
           p = Path('_audit/raw/data.json')
           payload = {
               'schema': 'rll.import_data_audit_manifest.v1',
-              'source_url': os.environ['REAL_DATA_URL'],
+              'standard_real_data_source': os.environ['RESOLVED_REAL_DATA_SOURCE'],
+              'source_url': os.environ['RESOLVED_REAL_DATA_URL'],
               'artifact_path': str(p),
               'sha256': hashlib.sha256(p.read_bytes()).hexdigest(),
               'bytes': p.stat().st_size,
