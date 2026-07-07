@@ -100,12 +100,18 @@ sources:
 
   - id: _template_nova_fonte
     label: "TEMPLATE — copy this block to register a new source; do not run as-is"
-    domain: TOKEN_VAZIO
+    domain: TEMPLATE_ONLY
     local_paths: []
     primary_source:
-      title: TOKEN_VAZIO
-      url: TOKEN_VAZIO
-    epistemic_initial: TOKEN_VAZIO
+      title: "TEMPLATE — choose a real primary source before activation"
+      url_candidates:
+        - checked: false
+          url: https://arxiv.org/
+          note: "Search/select the exact paper URL before enabling this source."
+        - checked: false
+          url: https://data.desi.lbl.gov/doc/
+          note: "Use only after selecting exact DESI release/file and checksum."
+    epistemic_initial: TEMPLATE_ONLY
     on_fail: FAILSAFE
     max_snapshot_age_days: 365
     rll_paths_affected: []
