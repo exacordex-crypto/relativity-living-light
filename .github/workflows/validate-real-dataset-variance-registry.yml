@@ -1,64 +1,71 @@
 # Auxiliary real-data workflow. Canonical policy: .github/workflows/real-data-complete-execution.yml
 name: Validate Real Dataset Variance Registry
+
 on:
   pull_request:
     paths:
-    - data/real/cosmology/variance_policy_registry_minimal.csv
-    - data/real/cosmology/dataset_routes_minimal.csv
-    - tools/validate_real_dataset_variance_registry.py
-    - docs/real_data/REAL_DATA_VARIANCE_REGISTRY.md
-    - .github/workflows/validate-real-dataset-variance-registry.yml
+      - data/real/cosmology/variance_policy_registry_minimal.csv
+      - data/real/cosmology/dataset_routes_minimal.csv
+      - tools/validate_real_dataset_variance_registry.py
+      - docs/real_data/REAL_DATA_VARIANCE_REGISTRY.md
+      - .github/workflows/validate-real-dataset-variance-registry.yml
   push:
     branches:
-    - main
+      - main
     paths:
-    - data/real/cosmology/variance_policy_registry_minimal.csv
-    - data/real/cosmology/dataset_routes_minimal.csv
-    - tools/validate_real_dataset_variance_registry.py
-    - docs/real_data/REAL_DATA_VARIANCE_REGISTRY.md
-    - .github/workflows/validate-real-dataset-variance-registry.yml
-  workflow_dispatch: null
+      - data/real/cosmology/variance_policy_registry_minimal.csv
+      - data/real/cosmology/dataset_routes_minimal.csv
+      - tools/validate_real_dataset_variance_registry.py
+      - docs/real_data/REAL_DATA_VARIANCE_REGISTRY.md
+      - .github/workflows/validate-real-dataset-variance-registry.yml
+  workflow_dispatch:
+
 permissions:
   contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   validate-real-dataset-variance-registry:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        persist-credentials: false
-    - name: Validate registry structure
-      run: python tools/validate_real_dataset_variance_registry.py
-    - name: Finalize canonical real-data policy checksums
-      if: always()
-      run: 'set -euo pipefail
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-        ARTIFACT_DIR="artifacts/workflow-policy/validate-real-dataset-variance-registry/${{ github.job }}"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-        mkdir -p "$ARTIFACT_DIR"
+      - name: Validate registry structure
+        run: python tools/validate_real_dataset_variance_registry.py
 
-        . tools/ci/real_data_workflow_policy.sh
+      - name: Finalize canonical real-data policy checksums
+        if: always()
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="artifacts/workflow-policy/validate-real-dataset-variance-registry/${{ github.job }}"
+          mkdir -p "$ARTIFACT_DIR"
+          . tools/ci/real_data_workflow_policy.sh
+          rll_real_data_write_claim_boundary "$ARTIFACT_DIR"
+          rll_real_data_assert_boundary_file "$ARTIFACT_DIR/CLAIM_BOUNDARY.md"
+          rll_real_data_write_checksums "$ARTIFACT_DIR"
 
-        rll_real_data_write_claim_boundary "$ARTIFACT_DIR"
-
-        rll_real_data_assert_boundary_file "$ARTIFACT_DIR/CLAIM_BOUNDARY.md"
-
-        rll_real_data_write_checksums "$ARTIFACT_DIR"
-
-        '
-    - name: Upload canonical real-data policy artifact
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: validate-real-dataset-variance-registry-policy-${{ github.run_id }}-${{ github.job }}
-        path: artifacts/workflow-policy/validate-real-dataset-variance-registry/${{ github.job }}/
-        retention-days: '14'
+      - name: Upload canonical real-data policy artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-real-dataset-variance-registry-policy-${{ github.run_id }}-${{ github.job }}
+          path: artifacts/workflow-policy/validate-real-dataset-variance-registry/${{ github.job }}/
+          if-no-files-found: warn
+          retention-days: 14
     env:
       CANONICAL_REAL_DATA_WORKFLOW: .github/workflows/real-data-complete-execution.yml
       CLAIM_BOUNDARY: Auxiliary real-data workflow only; no RLL/cosmology/superiority claim and no synthetic, mock, fixture, demo, example, or placeholder promotion beyond explicit run checks.
+
 x-canonical-real-data-policy: Auxiliary real-data workflow; canonical policy is .github/workflows/real-data-complete-execution.yml. Synthetic/mock/fixture/demo/example/placeholder inputs cannot be promoted as real observational evidence.
