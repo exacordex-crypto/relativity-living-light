@@ -127,6 +127,24 @@ CI não confirma:
 - aceitação acadêmica;
 - evidência observacional além dos dados efetivamente processados.
 
+### 11. URLs reais devem entrar por checklist
+
+Sempre que um YAML, documento ou config precisar de `url:`, usar uma fila em formato checkbox antes de promover a URL para pipeline executável.
+
+Padrão recomendado:
+
+- `[x]` URL já registrada ou materializada no projeto.
+- `[ ]` URL candidata real possível, ainda aguardando curadoria.
+
+Critérios mínimos antes de mover uma URL candidata para YAML executável:
+
+- [ ] fonte primária, portal oficial ou repositório reconhecido do projeto científico;
+- [ ] arquivo local definido em `local_paths`;
+- [ ] checksum, manifest ou fingerprint definido;
+- [ ] separação explícita entre dado real e mock/synthetic/demo;
+- [ ] claim boundary preservado;
+- [ ] workflow não sobrescreve dado real silenciosamente.
+
 ## Hotfix aplicado
 
 ### YAML Syntax Validation Gate
@@ -158,10 +176,11 @@ Padrões adicionados:
 3. preservar claim boundary;
 4. mover escrita para job opt-in;
 5. manter auditoria em artefatos;
-6. só tornar strict depois de zerar lacunas conhecidas.
+6. só tornar strict depois de zerar lacunas conhecidas;
+7. colocar novas URLs primeiro em checklist de curadoria antes de promover para `primary_source.url`.
 
 ## Estado operacional
 
-- `F_DE_RESOLVIDO`: sintaxe YAML separada de auditoria metodológica; workflows principais endurecidos.
-- `F_DE_GAP`: workflows com escrita ou schedule podem exigir revisão manual por política de segurança.
-- `F_DE_NEXT`: continuar refatoração por blocos pequenos, começando pelos workflows que aparecem no ledger com `LACUNA_CONCURRENCY`, `LACUNA_TIMEOUT` ou `LACUNA_PERMISSIONS`.
+- `F_DE_RESOLVIDO`: sintaxe YAML separada de auditoria metodológica; workflows principais endurecidos; regra de checklist para URLs reais adicionada.
+- `F_DE_GAP`: workflows com escrita ou schedule podem exigir revisão manual por política de segurança; checklist completo de URLs deve ser inserido em commit separado se permitido pelo conector.
+- `F_DE_NEXT`: continuar refatoração por blocos pequenos, começando pelos workflows que aparecem no ledger com `LACUNA_CONCURRENCY`, `LACUNA_TIMEOUT` ou `LACUNA_PERMISSIONS`, e criar checklist de URLs reais candidatas por domínio.
