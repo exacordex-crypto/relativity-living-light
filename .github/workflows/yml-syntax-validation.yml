@@ -5,15 +5,24 @@ on:
     paths:
       - '**/*.yml'
       - '**/*.yaml'
+      - '**/*.md'
+      - 'tools/audit_real_data_urls.py'
   push:
     branches: [ main ]
     paths:
       - '**/*.yml'
       - '**/*.yaml'
+      - '**/*.md'
+      - 'tools/audit_real_data_urls.py'
   workflow_dispatch:
     inputs:
       strict_workflow_audit:
         description: Fail the run if workflow policy audit finds issues
+        required: true
+        default: false
+        type: boolean
+      strict_url_audit:
+        description: Fail the run if real-data URL audit finds blocking URL placeholders
         required: true
         default: false
         type: boolean
@@ -119,6 +128,38 @@ jobs:
           sys.exit(1 if failed else 0)
           PY
 
+      - name: Advisory real-data URL audit
+        shell: bash
+        env:
+          STRICT_URL_AUDIT: ${{ github.event.inputs.strict_url_audit || 'false' }}
+        run: |
+          set +e
+          mkdir -p artifacts/yml-syntax-validation artifacts/real-data-url-audit
+          python3 tools/audit_real_data_urls.py --report-dir artifacts/real-data-url-audit | tee artifacts/yml-syntax-validation/real_data_url_audit.log
+          status=${PIPESTATUS[0]}
+          python - <<PY
+          import json
+          from pathlib import Path
+          status = int(${status})
+          strict = '${STRICT_URL_AUDIT}'.lower() == 'true'
+          payload = {
+              'schema': 'rll.real_data_url_audit_status.v1',
+              'status_code': status,
+              'passed': status == 0,
+              'strict_url_audit': strict,
+              'blocking': strict,
+              'claim_boundary': 'URL audit checks provenance hygiene only; it does not validate RLL or scientific superiority.',
+          }
+          Path('artifacts/yml-syntax-validation/real_data_url_audit_status.json').write_text(
+              json.dumps(payload, indent=2, ensure_ascii=False) + '\n', encoding='utf-8'
+          )
+          PY
+          if [ "$STRICT_URL_AUDIT" = "true" ]; then
+            python3 tools/audit_real_data_urls.py --report-dir artifacts/real-data-url-audit --strict
+            exit "$?"
+          fi
+          exit 0
+
       - name: Advisory workflow policy audit
         shell: bash
         env:
@@ -155,5 +196,7 @@ jobs:
         if: always()
         with:
           name: yml-syntax-validation-${{ github.run_id }}
-          path: artifacts/yml-syntax-validation/
+          path: |
+            artifacts/yml-syntax-validation/
+            artifacts/real-data-url-audit/
           retention-days: 14
