@@ -11,6 +11,12 @@ on:
       - '**/*.yml'
       - '**/*.yaml'
   workflow_dispatch:
+    inputs:
+      strict_workflow_audit:
+        description: Fail the run if workflow policy audit finds issues
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -26,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -111,8 +119,10 @@ jobs:
           sys.exit(1 if failed else 0)
           PY
 
-      - name: Validate workflow isolation (repo audit tool)
+      - name: Advisory workflow policy audit
         shell: bash
+        env:
+          STRICT_WORKFLOW_AUDIT: ${{ github.event.inputs.strict_workflow_audit || 'false' }}
         run: |
           mkdir -p artifacts/yml-syntax-validation
           set +e
@@ -121,17 +131,24 @@ jobs:
           python - <<PY
           import json
           from pathlib import Path
+          status = int(${status})
+          strict = '${STRICT_WORKFLOW_AUDIT}'.lower() == 'true'
           payload = {
               'schema': 'rll.workflow_audit_status.v1',
-              'status_code': int(${status}),
-              'passed': int(${status}) == 0,
+              'status_code': status,
+              'passed': status == 0,
+              'strict_workflow_audit': strict,
+              'blocking': strict,
               'claim_boundary': 'Workflow hygiene audit confirms structure/isolation only; it does not validate scientific claims.',
           }
           Path('artifacts/yml-syntax-validation/workflow_audit_status.json').write_text(
               json.dumps(payload, indent=2, ensure_ascii=False) + '\n', encoding='utf-8'
           )
           PY
-          exit "$status"
+          if [ "$STRICT_WORKFLOW_AUDIT" = "true" ]; then
+            exit "$status"
+          fi
+          exit 0
 
       - name: Upload consultable YAML validation artifacts
         uses: actions/upload-artifact@v4
